@@ -70,10 +70,14 @@ Citation_Network/
 │   ├── stage_4_layout.py       ← GPU ForceAtlas2 / igraph DRL layout
 │   ├── stage_5_export.py       ← export graph_preview.json
 │   └── utils/                  ← checkpoint, node_mapping, data_loader, ...
-├── artifacts/
-│   ├── citation-network/       ← React + Vite frontend
-│   └── api-server/             ← Express 5 API server
-└── public/data/                ← pipeline writes final output here
+├── app/                        ← Next.js 16 frontend + API routes
+│   ├── api/                    ← API routes (graph, search, paper, map)
+│   ├── page.tsx                ← main visualization page
+│   └── layout.tsx              ← root layout
+├── public/data/                ← pipeline writes final output here
+│   ├── citation_network.db     ← SQLite database
+│   └── graph_preview.json      ← graph data for visualization
+└── package.json                ← Next.js dependencies
 ```
 
 ---
@@ -463,12 +467,11 @@ ls -lh public/data/
 
 ## 11. Run the Web App
 
-The web app has two parts: an **Express API server** and a **React + Vite frontend**.
-Both must be running at the same time.
+The web app is a single **Next.js 16 application** that includes both the API routes and frontend UI.
 
 ### File placement
 
-The API server reads from `public/data/` at the project root:
+The API routes read from `public/data/` at the project root:
 
 ```
 Citation_Network/
@@ -481,49 +484,51 @@ Citation_Network/
 
 If you ran Stage 5 with `--export-dir ../public/data/`, the files are already here.
 
-### Terminal A — API Server (port 8080)
+### Start the development server
 
 ```bash
-# From workspace root
-pnpm --filter @workspace/api-server run dev
+# From project root
+pnpm install      # if needed
+pnpm dev
 ```
 
-Expected:
+Expected output:
 ```
-[INFO] API server running on port 8080
-[INFO] Loaded graph_preview.json — 500,000 nodes, 4,800,000 edges
+▲ Next.js 16.0.0
+- Local:        http://localhost:3000
+- Environments: .env.local
 ```
 
-Test the API:
+Open `http://localhost:3000` in your browser.
+
+### Test the API routes
+
 ```bash
-curl http://localhost:8080/api/graph/stats
+# Graph statistics
+curl http://localhost:3000/api/graph/stats
 # {"nodeCount":500000,"edgeCount":4800000,"communities":12}
 
-curl "http://localhost:8080/api/search?q=deep+learning"
+# Search papers
+curl "http://localhost:3000/api/search?q=deep+learning"
 # {"papers":[...]}
+
+# Get graph data
+curl http://localhost:3000/api/graph/load
+# {...full graph data...}
 ```
-
-### Terminal B — Frontend (React + Vite)
-
-```bash
-# From workspace root
-pnpm --filter @workspace/citation-network run dev
-```
-
-Open the URL shown in terminal output (e.g. `http://localhost:5173`).
 
 ### Available API routes
 
-| Method | Route | Description |
-|---|---|---|
-| `GET` | `/api/graph/stats` | Node / edge / community counts |
-| `GET` | `/api/graph/nodes` | Paginated node list |
-| `GET` | `/api/graph/nodes/:id` | Single node by integer ID |
-| `GET` | `/api/graph/load` | Full preview graph JSON |
-| `GET` | `/api/paper/:paperId` | Paper detail (title, abstract, authors, DOI) |
-| `GET` | `/api/search?q=...` | Full-text search by title / abstract / keywords |
-| `GET` | `/api/map/manifest` | Map tile manifest |
-| `GET` | `/api/map/tile/:z/:x/:y` | Map tile image |
+These are implemented as Next.js API Route Handlers in `app/api/`:
+
+| Method | Route | Description | File |
+|---|---|---|---|
+| `GET` | `/api/graph/stats` | Node / edge / community counts | `app/api/graph/stats/route.ts` |
+| `GET` | `/api/graph/nodes` | Paginated node list | `app/api/graph/nodes/route.ts` |
+| `GET` | `/api/graph/nodes/:id` | Single node by integer ID | `app/api/graph/nodes/[id]/route.ts` |
+| `GET` | `/api/graph/load` | Full preview graph JSON | `app/api/graph/load/route.ts` |
+| `GET` | `/api/paper/:paperId` | Paper detail (title, abstract, authors, DOI) | `app/api/paper/[id]/route.ts` |
+| `GET` | `/api/search?q=...` | Full-text search by title / abstract / keywords | `app/api/search/route.ts` |
 
 ---
 
@@ -691,9 +696,9 @@ python main_stages_3_5.py \
    ```bash
    python3 -c "import json; d=json.load(open('public/data/graph_preview.json')); print(len(d['nodes']), 'nodes')"
    ```
-2. Check the API server is running and responding:
+2. Check the Next.js dev server is running and responding:
    ```bash
-   curl http://localhost:8080/api/graph/stats
+   curl http://localhost:3000/api/graph/stats
    ```
 3. Open browser DevTools → Console for JavaScript errors (usually a CORS or path mismatch).
 
@@ -772,16 +777,14 @@ python main.py \
     --db ../public/data/citation_network.db \
     --num-gpus 8 --verbose
 
-# ── Verify ────────────────────────────────────────────────────────────────────
+# ── Verify ─────────────────���──────────────────────────────────────────────────
 sqlite3 ../public/data/citation_network.db "SELECT COUNT(*) FROM graph_nodes;"
 python3 -c "import json; d=json.load(open('public/data/graph_preview.json')); print(len(d['nodes']),'nodes')"
 
 # ── Run the web app ───────────────────────────────────────────────────────────
-# Terminal A — API server:
-pnpm --filter @workspace/api-server run dev
-
-# Terminal B — Frontend:
-pnpm --filter @workspace/citation-network run dev
+cd ../
+pnpm install      # if needed
+pnpm dev          # starts Next.js at http://localhost:3000
 ```
 
 ---
