@@ -91,6 +91,9 @@ export default function Home() {
           <CitationMapView
             selectedPaperId={selectedPaper}
             onSelectPaper={setSelectedPaper}
+            searchQuery={searchQuery}
+            yearRange={yearRange}
+            selectedClusters={selectedClusters}
           />
         )}
       </div>

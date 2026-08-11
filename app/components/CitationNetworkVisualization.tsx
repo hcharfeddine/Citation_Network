@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Sigma from 'sigma';
-import { Graph } from 'graphology';
+import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
 import circular from 'graphology-layout/circular';
 import { GraphSkeleton, ErrorState } from './LoadingStates';
@@ -111,28 +111,26 @@ const CitationNetworkVisualization: React.FC<Props> = ({
           }
         });
 
-        // Compute a real network layout so nodes cluster and edges form readable lines
-        if (graph.order > 0 && graph.size > 0) {
+        // Use persisted coordinates whenever available. Running ForceAtlas2 in the
+        // browser blocks the main thread and makes large citation graphs freeze.
+        const hasPersistedLayout = data.nodes.length > 0 && data.nodes.every(
+          (node) => Number.isFinite(node.x) && Number.isFinite(node.y),
+        );
+        if (!hasPersistedLayout && graph.order > 0 && graph.size > 0) {
           circular.assign(graph, { scale: 100 });
           const settings = forceAtlas2.inferSettings(graph);
-          const iterations =
-            graph.order > 5000 ? 200 : graph.order > 2000 ? 350 : graph.order > 500 ? 500 : 700;
           forceAtlas2.assign(graph, {
-            iterations,
+            iterations: Math.min(120, Math.max(30, Math.floor(12000 / graph.order))),
             settings: {
               ...settings,
               gravity: 0.5,
               scalingRatio: 20,
-              slowDown: 3,
+              slowDown: 4,
               barnesHutOptimize: graph.order > 1000,
-              barnesHutTheta: 0.6,
-              strongGravityMode: false,
-              linLogMode: true,
-              outboundAttractionDistribution: false,
-              adjustSizes: false,
+              barnesHutTheta: 0.7,
             },
           });
-        } else if (graph.order > 0) {
+        } else if (!hasPersistedLayout && graph.order > 0) {
           circular.assign(graph, { scale: 100 });
         }
 

@@ -31,6 +31,9 @@ interface PaperHit {
 interface Props {
   selectedPaperId: string | null;
   onSelectPaper: (paperId: string) => void;
+  searchQuery: string;
+  yearRange: [number, number];
+  selectedClusters: number[];
 }
 
 const CitationMapView: React.FC<Props> = ({ onSelectPaper }) => {
